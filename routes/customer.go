@@ -63,6 +63,24 @@ func GetCustomer(res http.ResponseWriter, req *http.Request) {
 
 }
 func UpdateCustomer(res http.ResponseWriter, req *http.Request) {
+	var response model.Response
+	var updatedFields map[string]interface{}
+	vars := mux.Vars(req)
+	id, _ := strconv.Atoi(vars["id"])
+	err := json.NewDecoder(req.Body).Decode(&updatedFields)
+
+	reqStatus, err := model.UpdateCustomer(id, updatedFields)
+	response.Status = 200
+	response.Error = reqStatus
+	if err != nil {
+
+		response.Data = err.Error()
+	} else {
+		response.Data = "data updated successfully"
+
+	}
+	res.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(res).Encode(response)
 
 }
 func DeleteCustomer(res http.ResponseWriter, req *http.Request) {

@@ -27,12 +27,13 @@ func CreateCustomer(customer Customer) (bool, error) {
 	return false, nil
 }
 
-func UpdateCustomer(id int, customer Customer) (bool, error) {
+func UpdateCustomer(id int, updatedFileds map[string]interface{}) (bool, error) {
 	db, err := config.GetDB()
 	if err != nil {
 		return true, err
 	}
-	res := db.Create(&customer)
+
+	res := db.Model(Customer{}).Where("id=?", id).Updates(updatedFileds)
 	if res.Error != nil {
 		return true, err
 	}
