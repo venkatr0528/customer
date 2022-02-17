@@ -1,15 +1,42 @@
-package routes
+package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/venkat/customer/config"
 	"github.com/venkat/customer/model"
+	"gorm.io/gorm"
 )
 
-func CreateCustomer(res http.ResponseWriter, req *http.Request) {
+type App struct {
+	DB     *gorm.DB
+	Router *mux.Router
+}
+
+func (a *App) Init() {
+	db, err := config.GetDB()
+	if err != nil {
+		log.Fatal("Issue with database connection:", err.Error())
+	}
+	a.DB = db
+	a.Router = mux.NewRouter()
+	a.initializeRoutes()
+}
+func (a *App) initializeRoutes() {
+	a.Router.HandleFunc("/customer/create", a.CreateCustomer).Methods("POST")
+	a.Router.HandleFunc("/customer/{id}", a.GetCustomer).Methods("GET")
+	a.Router.HandleFunc("/customer", a.GetAllCustomers).Methods("GET")
+	a.Router.HandleFunc("/customer/{id}", a.UpdateCustomer).Methods("PATCH")
+	a.Router.HandleFunc("/customer/delete/{id}", a.DeleteCustomer).Methods("DELETE")
+}
+func (a *App) Run(address string) {
+	log.Fatal(http.ListenAndServe(address, a.Router))
+}
+func (a *App) CreateCustomer(res http.ResponseWriter, req *http.Request) {
 	var customer model.Customer
 	var response model.Response
 	err := json.NewDecoder(req.Body).Decode(&customer)
@@ -20,9 +47,9 @@ func CreateCustomer(res http.ResponseWriter, req *http.Request) {
 		response.Data = err.Error()
 		json.NewEncoder(res).Encode(response)
 	}
-	reqStatus, err := model.CreateCustomer(customer)
-	response.Error = reqStatus
+	err = customer.CreateCustomer(a.DB)
 	if err != nil {
+		response.Error = true
 		response.Data = err.Error()
 	} else {
 		response.Data = "Data created successfully"
@@ -32,7 +59,7 @@ func CreateCustomer(res http.ResponseWriter, req *http.Request) {
 
 }
 
-func GetAllCustomers(res http.ResponseWriter, req *http.Request) {
+func (a *App) GetAllCustomers(res http.ResponseWriter, req *http.Request) {
 	var response model.Response
 	customers, err := model.GetAllCustomer()
 	res.Header().Set("Content-Type", "application/json")
@@ -46,12 +73,13 @@ func GetAllCustomers(res http.ResponseWriter, req *http.Request) {
 	}
 	json.NewEncoder(res).Encode(response)
 }
-func GetCustomer(res http.ResponseWriter, req *http.Request) {
+func (a *App) GetCustomer(res http.ResponseWriter, req *http.Request) {
 	var response model.Response
 	vars := mux.Vars(req)
 	id, _ := strconv.Atoi(vars["id"])
-	customer, err := model.GetCustomer(id)
-	if err != nil {
+	customer := model.Customer{ID: id}
+
+	if err := customer.GetCustomer(a.DB); err != nil {
 		response.Error = true
 		response.Data = err.Error()
 	} else {
@@ -62,18 +90,18 @@ func GetCustomer(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(response)
 
 }
-func UpdateCustomer(res http.ResponseWriter, req *http.Request) {
+func (a *App) UpdateCustomer(res http.ResponseWriter, req *http.Request) {
 	var response model.Response
 	var updatedFields map[string]interface{}
 	vars := mux.Vars(req)
 	id, _ := strconv.Atoi(vars["id"])
 	err := json.NewDecoder(req.Body).Decode(&updatedFields)
-
-	reqStatus, err := model.UpdateCustomer(id, updatedFields)
+	customer := model.Customer{ID: id}
+	err = customer.UpdateCustomer(a.DB, updatedFields)
 	response.Status = 200
-	response.Error = reqStatus
+	response.Error = false
 	if err != nil {
-
+		response.Error = true
 		response.Data = err.Error()
 	} else {
 		response.Data = "data updated successfully"
@@ -83,15 +111,16 @@ func UpdateCustomer(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(response)
 
 }
-func DeleteCustomer(res http.ResponseWriter, req *http.Request) {
+func (a *App) DeleteCustomer(res http.ResponseWriter, req *http.Request) {
 	var response model.Response
 	vars := mux.Vars(req)
 	id, _ := strconv.Atoi(vars["id"])
-	reqStatus, err := model.DeleteCustomer(id)
+	customer := model.Customer{ID: id}
+	err := customer.DeleteCustomer(a.DB)
 	response.Status = 200
-	response.Error = reqStatus
+	response.Error = false
 	if err != nil {
-
+		response.Error = true
 		response.Data = err.Error()
 	} else {
 		response.Data = "data deleted successfully"

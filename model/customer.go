@@ -1,6 +1,9 @@
 package model
 
-import "github.com/venkat/customer/config"
+import (
+	"github.com/venkat/customer/config"
+	"gorm.io/gorm"
+)
 
 type Customer struct {
 	ID           int    `json:"id"`
@@ -15,57 +18,28 @@ type Response struct {
 	Data   interface{} `json:"data"`
 }
 
-func CreateCustomer(customer Customer) (bool, error) {
-	db, err := config.GetDB()
-	if err != nil {
-		return true, err
-	}
-	res := db.Create(&customer)
-	if res.Error != nil {
-		return true, err
-	}
-	return false, nil
+func (c *Customer) CreateCustomer(db *gorm.DB) error {
+	res := db.Create(&c)
+	return res.Error
 }
 
-func UpdateCustomer(id int, updatedFileds map[string]interface{}) (bool, error) {
-	db, err := config.GetDB()
-	if err != nil {
-		return true, err
-	}
+func (c *Customer) UpdateCustomer(db *gorm.DB, updatedFileds map[string]interface{}) error {
 
-	res := db.Model(Customer{}).Where("id=?", id).Updates(updatedFileds)
-	if res.Error != nil {
-		return true, err
-	}
-	return false, nil
+	res := db.Model(&c).Updates(updatedFileds)
+	return res.Error
 
 }
 
-func DeleteCustomer(id int) (bool, error) {
-	var customer Customer
-	db, err := config.GetDB()
-	if err != nil {
-		return true, err
-	}
-	res := db.Delete(&customer, id)
-	if res.Error != nil {
-		return true, err
-	}
-	return false, nil
+func (c *Customer) DeleteCustomer(db *gorm.DB) error {
+
+	res := db.Delete(&c)
+	return res.Error
 
 }
 
-func GetCustomer(id int) (Customer, error) {
-	var customer Customer
-	db, err := config.GetDB()
-	if err != nil {
-		return customer, err
-	}
-	res := db.First(&customer, id)
-	if res.Error != nil {
-		return customer, err
-	}
-	return customer, nil
+func (c *Customer) GetCustomer(db *gorm.DB) error {
+	res := db.Find(&c)
+	return res.Error
 }
 
 func GetAllCustomer() ([]Customer, error) {
