@@ -1,11 +1,14 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo"
-	"github.com/venkat/customer/domain"
+	"github.com/gorilla/mux"
+
+	"github.com/venkat/customer/model"
+	"github.com/venkat/customer/service"
 )
 
 // ResponseError represent the reseponse error struct
@@ -15,97 +18,116 @@ type ResponseError struct {
 
 // CustomerHandler  represent the httphandler for customer
 type CustomerHandler struct {
-	CUsecase domain.CustomerUsecase
+	CUsecase service.CustomerUsecase
 }
 
-func NewCustomerHandler(e *echo.Echo, us domain.CustomerUsecase) {
+func NewCustomerHandler(r *mux.Router, us service.CustomerUsecase) {
 	handler := &CustomerHandler{
 		CUsecase: us,
 	}
-	e.GET("/customers", handler.Fetch)
-	e.POST("/customers", handler.Store)
-	e.PUT("/customers/:id", handler.Update)
-	e.GET("/customers/:id", handler.GetByID)
-	e.DELETE("/customers/:id", handler.Delete)
-}
-func (a *CustomerHandler) Fetch(c echo.Context) error {
-	ctx := c.Request().Context()
 
-	res, err := a.CUsecase.Fetch(ctx)
+	r.HandleFunc("/customers", handler.Fetch).Methods("GET")
+	r.HandleFunc("/customers", handler.Store).Methods("POST")
+	r.HandleFunc("/customers/{id}", handler.Update).Methods("PUT")
+	r.HandleFunc("/customers/{id}", handler.GetByID).Methods("GET")
+	r.HandleFunc("/customers/{id}", handler.Delete).Methods("DELETE")
+}
+func (a *CustomerHandler) Fetch(res http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	res.Header().Set("Content-Type", "application/json")
+	result, err := a.CUsecase.Fetch(ctx)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
-
-	return c.JSON(http.StatusOK, res)
+	res.WriteHeader(http.StatusOK)
+	json.NewEncoder(res).Encode(result)
 }
 
-func (a *CustomerHandler) GetByID(c echo.Context) error {
-	idP, err := strconv.Atoi(c.Param("id"))
+func (a *CustomerHandler) GetByID(res http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	idP, err := strconv.Atoi(vars["id"])
+	res.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		return c.JSON(http.StatusNotFound, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
 	id := int64(idP)
-	ctx := c.Request().Context()
+	ctx := req.Context()
 
-	art, err := a.CUsecase.GetByID(ctx, id)
+	cust, err := a.CUsecase.GetByID(ctx, id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
-	return c.JSON(http.StatusOK, art)
+	res.WriteHeader(http.StatusOK)
+	json.NewEncoder(res).Encode(cust)
 }
 
 // Store will store the customer by given request body
-func (a *CustomerHandler) Store(c echo.Context) (err error) {
-	var customer domain.Customer
-	err = c.Bind(&customer)
+func (a *CustomerHandler) Store(res http.ResponseWriter, req *http.Request) {
+	var customer model.Customer
+	err := json.NewDecoder(req.Body).Decode(&customer)
 	if err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err.Error())
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
-	ctx := c.Request().Context()
+	ctx := req.Context()
 	err = a.CUsecase.Store(ctx, &customer)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
-	return c.JSON(http.StatusCreated, customer)
+	res.WriteHeader(http.StatusOK)
+	json.NewEncoder(res).Encode(customer)
 }
 
 // Store will update the customer by given request body
-func (a *CustomerHandler) Update(c echo.Context) (err error) {
+func (a *CustomerHandler) Update(res http.ResponseWriter, req *http.Request) {
 	var updatedFields map[string]interface{}
-	err = c.Bind(&updatedFields)
+	err := json.NewDecoder(req.Body).Decode(&updatedFields)
 	if err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err.Error())
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
-	idP, err := strconv.Atoi(c.Param("id"))
+	vars := mux.Vars(req)
+	idP, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		return c.JSON(http.StatusNotFound, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
-	ctx := c.Request().Context()
+	ctx := req.Context()
 	err = a.CUsecase.Update(ctx, int64(idP), updatedFields)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
-	return c.JSON(http.StatusCreated, "Data updated successfully")
+	res.WriteHeader(http.StatusOK)
+	json.NewEncoder(res).Encode("Data updated successfully")
 }
 
-func (a *CustomerHandler) Delete(c echo.Context) error {
-	idP, err := strconv.Atoi(c.Param("id"))
+func (a *CustomerHandler) Delete(res http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	idP, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		return c.JSON(http.StatusNotFound, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
 	id := int64(idP)
-	ctx := c.Request().Context()
+	ctx := req.Context()
 
 	err = a.CUsecase.Delete(ctx, id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, ResponseError{Message: err.Error()})
+		res.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(res).Encode(err.Error())
 	}
 
-	return c.NoContent(http.StatusNoContent)
+	res.WriteHeader(http.StatusOK)
+	json.NewEncoder(res).Encode("Data deleted successfully")
 }

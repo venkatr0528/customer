@@ -1,28 +1,30 @@
-package usecase
+package service
 
 import (
 	"context"
 
-	"github.com/venkat/customer/domain"
+	"github.com/venkat/customer/model"
+
+	repository "github.com/venkat/customer/repository"
 )
 
 type customerUsecase struct {
-	customerRepo domain.CustomerRepository
+	customerRepo repository.CustomerRepository
 }
 
 // NewCustomerUsecase will create new an NewCustomerUsecase object representation of domain.NewCustomerUsecase interface
-func NewCustomerUsecase(cr domain.CustomerRepository) domain.CustomerUsecase {
+func NewCustomerUsecase(cr repository.CustomerRepository) CustomerUsecase {
 	return &customerUsecase{
 		customerRepo: cr,
 	}
 }
 
-func (a *customerUsecase) Fetch(ctx context.Context) (res []domain.Customer, err error) {
+func (a *customerUsecase) Fetch(ctx context.Context) (res []model.Customer, err error) {
 	res, err = a.customerRepo.Fetch(ctx)
 	return
 }
 
-func (a *customerUsecase) GetByID(ctx context.Context, id int64) (res domain.Customer, err error) {
+func (a *customerUsecase) GetByID(ctx context.Context, id int64) (res model.Customer, err error) {
 
 	res, err = a.customerRepo.GetByID(ctx, id)
 	return
@@ -33,7 +35,7 @@ func (a *customerUsecase) Update(ctx context.Context, id int64, updatedFileds ma
 	return a.customerRepo.Update(ctx, id, updatedFileds)
 }
 
-func (a *customerUsecase) Store(ctx context.Context, customer *domain.Customer) (err error) {
+func (a *customerUsecase) Store(ctx context.Context, customer *model.Customer) (err error) {
 	err = a.customerRepo.Store(ctx, customer)
 	return
 }
@@ -44,7 +46,7 @@ func (a *customerUsecase) Delete(ctx context.Context, id int64) (err error) {
 	if err != nil {
 		return
 	}
-	if existedCustomer == (domain.Customer{}) {
+	if existedCustomer == (model.Customer{}) {
 		return
 	}
 	return a.customerRepo.Delete(ctx, id)
